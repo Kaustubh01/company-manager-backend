@@ -1,0 +1,119 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+
+
+/*
+
+Employees:
+employee_id (Primary Key)
+name
+email
+role
+salary
+attendance
+
+Customers:
+customer_id (Primary Key)
+name
+email
+phone
+address
+
+Inventory:
+item_id (Primary Key)
+item_name
+quantity
+price
+supplier
+
+Sales:
+sale_id (Primary Key)
+customer_id (Foreign Key)
+item_id (Foreign Key)
+quantity_sold
+sale_date
+total_price
+
+
+
+*/
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Employee {
+  id         Int      @id @default(autoincrement())
+  name       String
+  email      String   @unique
+  department String
+  role       String
+  salary     Int?
+  attendance Int?
+  
+  lastAttendanceRecorded DateTime?  @default("2025-02-01T00:00:00.000Z")
+
+  buisnesses Buisness[]
+  Task Task[]
+}
+
+model Task {
+  id          Int      @id @default(autoincrement())  // Unique identifier for the task
+  title       String   // Title of the task
+  description String?  // Optional description of the task
+  status      String   @default("pending")// Task status (e.g., 'Pending', 'In Progress', 'Completed')
+  dueDate     DateTime? // Optional due date for the task
+  createdAt   DateTime @default(now())  // Timestamp when the task was created
+  updatedAt   DateTime @updatedAt // Timestamp when the task was last updated
+  
+  employeeId  Int      // Foreign key referencing the Employee model
+  employee    Employee @relation(fields: [employeeId], references: [id])  // Relation to the Employee model
+}
+
+model Customer {
+  id      Int    @id @default(autoincrement())
+  name    String
+  email   String @unique
+  phone   Int    @unique
+  address String
+  sales   Sales[]
+}
+
+model Inventory {
+  id        Int    @id @default(autoincrement())
+  item_name String
+  quantity  Int
+  price     Int
+  supplier  String
+  sales     Sales[]
+}
+
+model Sales {
+  id            Int       @id @default(autoincrement())
+  customer_id   Int
+  item_id       Int
+  quantity_sold Int
+  sale_date     DateTime
+  total_price   Float
+
+  // Relations
+  customer      Customer  @relation(fields: [customer_id], references: [id])
+  item          Inventory @relation(fields: [item_id], references: [id])
+
+}
+
+model Buisness {
+  id Int @id @default(autoincrement())
+  name String
+  admin_id Int
+
+  employee Employee @relation(fields: [admin_id], references: [id])
+}
