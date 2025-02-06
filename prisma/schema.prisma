@@ -16,6 +16,8 @@ model Business {
   Sales Sales[]
 
   Inventory Inventory[]
+
+  Customer Customer[]
 }
 
 model Employee {
@@ -50,13 +52,16 @@ model Task {
 }
 
 model Customer {
-  id      Int    @id @default(autoincrement())
-  name    String
-  email   String @unique
-  phone   String @unique
-  address String
-  sales   Sales[]
+  id          Int      @id @default(autoincrement())
+  name        String
+  email       String   @unique
+  phone       String   @unique
+  address     String
+  business_id Int      // Foreign key (required)
+  business    Business @relation(fields: [business_id], references: [id])
+  sales       Sales[]
 }
+
 
 model Inventory {
   id          Int       @id @default(autoincrement())

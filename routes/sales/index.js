@@ -1,5 +1,5 @@
 // routes.js (or a similar file)
-import { getSales } from './employeeRoutes.js';  // Ensure correct path to employeeRoutes.js
+import { getSales } from './routes.js';  // Ensure correct path to employeeRoutes.js
 
 const salesRoutes = (app) => {
     // Use :business_id as a route parameter
