@@ -1,20 +1,39 @@
-// routes/employeeRoutes.js
 import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
-const createEmployee = async (req, res) => {
-    const { name, email, role, department } = req.body;
+// Middleware to get the business ID from the request
+const getBusinessIdFromRequest = (req) => {
+    const { businessId } = req.params;  // Business ID should be provided in the URL parameters
+    if (!businessId) {
+        throw new Error("Business ID is required");
+    }
+    return parseInt(businessId, 10);
+};
 
-    if (!name || !email || !role || !department) {
-        return res.status(400).json({ error: "Name, email, department and role are required" });
+const createEmployee = async (req, res) => {
+    const { name, email, role, department, password } = req.body;
+    const { businessId } = req.params;  // Get businessId from URL params
+
+    if (!name || !email || !role || !department || !password) {
+        return res.status(400).json({ error: "Name, email, department, password, and role are required" });
     }
 
     try {
         const newEmployee = await prisma.employee.create({
-            data: { name, email, role, attendance: 0 , department},
+            data: {
+                name,
+                email,
+                role,
+                department,
+                password,
+                attendance: 0,
+                business: {
+                    connect: { id: parseInt(businessId) },  // Connect employee to the business by ID
+                },
+            },
         });
-        res.status(201).json(newEmployee);  // Return the newly created employee
+        res.status(201).json(newEmployee);
     } catch (error) {
         console.error("Error creating employee:", error);
         res.status(500).json({ error: "Error creating employee" });
@@ -22,49 +41,78 @@ const createEmployee = async (req, res) => {
 };
 
 const getEmployees = async (req, res) => {
+    const businessId = getBusinessIdFromRequest(req);  // Get business ID from URL
+
     try {
-        const employees = await prisma.employee.findMany();
+        const employees = await prisma.employee.findMany({
+            where: {
+                business: {  // Corrected field name here
+                    id: businessId,  // Only return employees belonging to the specified business
+                },
+            },
+        });
         res.json(employees);
     } catch (error) {
         res.status(500).json({ error: "Error fetching employees" });
     }
 };
 
-const updateEmployeeSalary = async (req, res) =>{
-    const {id, newSalary} = req.body;
+const updateEmployeeSalary = async (req, res) => {
+    const { id, newSalary } = req.body;
+    const businessId = getBusinessIdFromRequest(req);  // Get business ID from URL
+
     try {
         const employee = await prisma.employee.update({
-            where:{id},
-            data:{
-                salary: newSalary
-            }
+            where: { id },
+            data: {
+                salary: newSalary,
+            },
+            include: {
+                business: true,  // Corrected field name here
+            },
         });
+
+        if (!employee || employee.business.id !== businessId) {
+            return res.status(404).json({ error: "Employee not found in the specified business" });
+        }
+
         res.status(200).json(employee);
     } catch (error) {
-        console.error("error updating employee salary", error);
-        res.status(500).json({error: "error updating employee salary"});
+        console.error("Error updating employee salary:", error);
+        res.status(500).json({ error: "Error updating employee salary" });
     }
-}
+};
 
 const updateEmployeeAttendance = async (req, res) => {
     const { id } = req.body;
+    const businessId = getBusinessIdFromRequest(req);  // Get business ID from URL
+
     try {
         const employee = await prisma.employee.update({
-            where:{id},
-            data:{
-                attendance : {increment:1},
-                lastAttendanceRecorded : new Date()
-            }
+            where: { id },
+            data: {
+                attendance: { increment: 1 },
+                lastAttendanceRecorded: new Date(),
+            },
+            include: {
+                business: true,  // Corrected field name here
+            },
         });
+
+        if (!employee || employee.business.id !== businessId) {
+            return res.status(404).json({ error: "Employee not found in the specified business" });
+        }
+
         res.status(200).json(employee);
     } catch (error) {
-        console.error("error updating employee attendance", error);
-        res.status(500).json({error: "error updating employee salary"});
+        console.error("Error updating employee attendance:", error);
+        res.status(500).json({ error: "Error updating employee attendance" });
     }
-}
+};
 
 const getEmployeesByName = async (req, res) => {
-    const { name } = req.query;  // Extract name from the query string
+    const { name } = req.query;
+    const businessId = getBusinessIdFromRequest(req);  // Get business ID from URL
 
     if (!name) {
         return res.status(400).json({ error: "Name query parameter is required" });
@@ -74,17 +122,20 @@ const getEmployeesByName = async (req, res) => {
         const employees = await prisma.employee.findMany({
             where: {
                 name: {
-                    contains: name,  // Find employees whose name contains the query string
-                    mode: 'insensitive',  // Make the search case-insensitive
+                    contains: name,
+                    mode: 'insensitive',
+                },
+                business: {  // Corrected field name here
+                    id: businessId,  // Filter by business ID
                 },
             },
         });
 
         if (employees.length === 0) {
-            return res.status(404).json({ error: "No employees found with that name" });
+            return res.status(404).json({ error: "No employees found with that name for the specified business" });
         }
 
-        res.status(200).json(employees);  // Return the list of employees
+        res.status(200).json(employees);
     } catch (error) {
         console.error("Error fetching employees:", error);
         res.status(500).json({ error: "Error fetching employees" });
@@ -93,53 +144,102 @@ const getEmployeesByName = async (req, res) => {
 
 const getEmployeesById = async (req, res) => {
     const { id } = req.query;
+    const businessId = getBusinessIdFromRequest(req);  // Get business ID from URL
 
-    if(!id){
-        return res.status(400).json({ error: "id query parameter is required" });
+    if (!id) {
+        return res.status(400).json({ error: "ID query parameter is required" });
     }
 
     const employeeId = parseInt(id, 10);
     if (isNaN(employeeId)) {
-        return res.status(400).json({ error: "Invalid id format. It must be a number." });
+        return res.status(400).json({ error: "Invalid ID format. It must be a number." });
     }
 
     try {
         const employee = await prisma.employee.findUnique({
-            where:{
-                id: employeeId
-            }
+            where: {
+                id: employeeId,
+            },
+            include: {
+                business: true,  // Corrected field name here
+            },
         });
-        if (!employee) {
-            return res.status(404).json({error: "No employee present for the given id"});
+
+        if (!employee || employee.business.id !== businessId) {
+            return res.status(404).json({ error: "Employee not found in the specified business" });
         }
+
         res.status(200).json(employee);
     } catch (error) {
         console.error("Error fetching employee:", error);
-        res.status(500).json({error: "Error fetching employee"});
+        res.status(500).json({ error: "Error fetching employee" });
     }
-}
+};
+
 const getEmployeesByEmail = async (req, res) => {
     const { email } = req.query;
+    const businessId = getBusinessIdFromRequest(req);  // Get business ID from URL
 
-    if(!email){
-        return res.status(400).json({ error: "id query parameter is required" });
+    if (!email) {
+        return res.status(400).json({ error: "Email query parameter is required" });
     }
 
     try {
         const employee = await prisma.employee.findUnique({
-            where:{
-                email: email
-            }
+            where: {
+                email,
+            },
+            include: {
+                business: true,  // Corrected field name here
+            },
         });
-        if (!employee) {
-            return res.status(404).json({error: "No employee present for the given email"});
+
+        if (!employee || employee.business.id !== businessId) {
+            return res.status(404).json({ error: "Employee not found in the specified business" });
         }
+
         res.status(200).json(employee);
     } catch (error) {
         console.error("Error fetching employee:", error);
-        res.status(500).json({error: "Error fetching employee"});
+        res.status(500).json({ error: "Error fetching employee" });
     }
-}
+
+    const getGeneralEmployeeByEmail = async (req, res) => {
+        const { email } = req.query;
+    
+        if (!email) {
+            return res.status(400).json({ error: "Email query parameter is required" });
+        }
+    
+        try {
+            const employee = await prisma.employee.findUnique({
+                where: {
+                    email,
+                },
+            });
+    
+            if (!employee) {
+                return res.status(404).json({ error: "Employee not found" });
+            }
+    
+            res.status(200).json(employee);
+        } catch (error) {
+            console.error("Error fetching employee:", error);
+            res.status(500).json({ error: "Error fetching employee" });
+        }
+    };
+    
+};
 
 
-export { createEmployee, getEmployees, updateEmployeeSalary, updateEmployeeAttendance, getEmployeesByName, getEmployeesByEmail, getEmployeesById };  // Export route handlers
+
+
+export { 
+    createEmployee, 
+    getEmployees, 
+    updateEmployeeSalary, 
+    updateEmployeeAttendance, 
+    getEmployeesByName, 
+    getEmployeesByEmail, 
+    getEmployeesById,
+};
