@@ -84,8 +84,16 @@ const updateEmployeeSalary = async (req, res) => {
 };
 
 const updateEmployeeAttendance = async (req, res) => {
-    const { id } = req.body;
+    let { id } = req.body;
     const businessId = getBusinessIdFromRequest(req);  // Get business ID from URL
+
+    // Parse the employee ID to an integer
+    id = parseInt(id, 10);
+
+    // Check if the ID is a valid number
+    if (isNaN(id)) {
+        return res.status(400).json({ error: "Invalid employee ID" });
+    }
 
     try {
         const employee = await prisma.employee.update({
@@ -109,6 +117,7 @@ const updateEmployeeAttendance = async (req, res) => {
         res.status(500).json({ error: "Error updating employee attendance" });
     }
 };
+
 
 const getEmployeesByName = async (req, res) => {
     const { name } = req.query;
