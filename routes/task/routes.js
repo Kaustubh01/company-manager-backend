@@ -2,16 +2,15 @@ import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
+// Helper function to validate employee ID
+const isValidEmployeeId = (id) => id && !isNaN(id);
+
+// Create a new task
 const createTask = async (req, res) => {
     const { employeeId, title, desc, dueDate, status } = req.body;
 
-    // Validate required fields
-    if (!employeeId || !title) {
-        return res.status(400).json({ error: "Employee ID and title are required." });
-    }
-
-    if (isNaN(employeeId)) {
-        return res.status(400).json({ error: "Employee ID must be a valid number." });
+    if (!isValidEmployeeId(employeeId) || !title) {
+        return res.status(400).json({ error: "Employee ID and title are required and must be valid." });
     }
 
     if (dueDate && isNaN(Date.parse(dueDate))) {
@@ -19,7 +18,6 @@ const createTask = async (req, res) => {
     }
 
     try {
-        // Create task
         const newTask = await prisma.task.create({
             data: {
                 title,
@@ -37,21 +35,18 @@ const createTask = async (req, res) => {
     }
 };
 
+// Get tasks for an employee
 const getTasks = async (req, res) => {
     const { employeeId } = req.query;
 
-    if (!employeeId) {
-        return res.status(400).json({ error: "Employee ID query parameter is required." });
-    }
-
-    if (isNaN(employeeId)) {
-        return res.status(400).json({ error: "Employee ID must be a valid number." });
+    if (!isValidEmployeeId(employeeId)) {
+        return res.status(400).json({ error: "Employee ID query parameter is required and must be valid." });
     }
 
     try {
         const tasks = await prisma.task.findMany({
             where: { employeeId: parseInt(employeeId) },
-            orderBy: { createdAt: "desc" }, // Most recent tasks first
+            orderBy: { createdAt: "desc" },
         });
 
         if (!tasks.length) {
@@ -65,4 +60,30 @@ const getTasks = async (req, res) => {
     }
 };
 
-export { createTask, getTasks };
+// Update task status
+const updateTaskStatus = async (req, res) => {
+    const { taskId, status } = req.body;
+
+    if (!taskId || isNaN(taskId) || !status) {
+        return res.status(400).json({ error: "Task ID and new status are required and must be valid." });
+    }
+
+    try {
+        const updatedTask = await prisma.task.update({
+            where: { id: parseInt(taskId) },
+            data: { status },
+        });
+
+        res.status(200).json(updatedTask);
+    } catch (error) {
+        console.error("Error updating task status:", error);
+
+        if (error.code === "P2025") {
+            return res.status(404).json({ error: "Task not found." });
+        }
+
+        res.status(500).json({ error: "Internal server error while updating task status." });
+    }
+};
+
+export { createTask, getTasks, updateTaskStatus };
