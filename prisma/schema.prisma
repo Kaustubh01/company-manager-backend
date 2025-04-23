@@ -29,6 +29,7 @@ model Employee {
   role       String
   salary     Int?
   attendance Int?
+  leaves     Int? @default(15)
   
   lastAttendanceRecorded DateTime? @default("2025-02-01T00:00:00.000Z")
 
