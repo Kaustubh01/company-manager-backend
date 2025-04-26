@@ -18,15 +18,22 @@ const getInventory = async (req, res) => {
 
 // Add a new product to inventory
 const addProduct = async (req, res) => {
-    const { item_name, quantity, price, supplier, business_id } = req.body;
+    const { item_name, quantity, price, supplier, category, business_id } = req.body;
 
-    if (!item_name || quantity == null || price == null || !supplier || !business_id) {
-        return res.status(400).json({ error: "All product details including business ID are required" });
+    if (!item_name || quantity == null || price == null || !supplier || !category || !business_id) {
+        return res.status(400).json({ error: "All product details including business ID and category are required" });
     }
 
     try {
         const newProduct = await prisma.inventory.create({
-            data: { item_name, quantity, price, supplier, business_id: parseInt(business_id) },
+            data: { 
+                item_name, 
+                quantity, 
+                price, 
+                supplier, 
+                category, // Ensure category is included
+                business_id: parseInt(business_id) 
+            },
         });
         res.status(201).json(newProduct);
     } catch (error) {
@@ -38,12 +45,19 @@ const addProduct = async (req, res) => {
 // Update an existing inventory item
 const updateProduct = async (req, res) => {
     const { id } = req.params;
-    const { item_name, quantity, price, supplier, business_id } = req.body;
+    const { item_name, quantity, price, supplier, category, business_id } = req.body;
 
     try {
         const updatedProduct = await prisma.inventory.update({
             where: { id: parseInt(id) },
-            data: { item_name, quantity, price, supplier, business_id: parseInt(business_id) },
+            data: { 
+                item_name, 
+                quantity, 
+                price, 
+                supplier, 
+                category,  // Ensure category is included
+                business_id: parseInt(business_id) 
+            },
         });
         res.json(updatedProduct);
     } catch (error) {

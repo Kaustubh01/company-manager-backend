@@ -70,10 +70,12 @@ model Inventory {
   quantity    Int
   price       Int
   supplier    String
+  category    String    @default("null") // Default value added
   business_id Int       // Foreign key (required)
   business    Business  @relation(fields: [business_id], references: [id])
   sales       Sales[]
 }
+
 
 
 model Sales {
